@@ -43,6 +43,9 @@ def sound_play():
     if play_sounds:
         no_mp3.play()
 
+def game_over():
+    set_title('game over!')
+        
 # scene\/
 class Scene:
     def __init__(self, img: PhotoImage=None, buttons_text: list[str]=None,
@@ -52,7 +55,7 @@ class Scene:
         self.buttons_commands = buttons_commands
         self.title = title
     
-    def activate(self):
+    def activate(self, upd=None):
         global img, buttons
 
         for but, text, comms in zip(buttons, self.buttons_text, self.buttons_commands):
@@ -60,16 +63,57 @@ class Scene:
 
         draw_image(self.img)
         set_title(self.title)
+
+        if upd is not None:
+            self.update_title(upd)
     
     def update_title(self, text):
         self.title = text
         set_title(self.title)
 
 class Level:
-    def __init__(self, enemy, lv_count):
+    def __init__(self, enemy, lv_count=0, enemy_power=0):
         self.enemy = enemy
         self.lv_count = lv_count
+        self.enemy_power = enemy_power
+    
+    def fight(self):
+        fight_side.activate()
 
+        def update_fight_data():
+            while pl.hp > 0 and entity.hp > 0:
+                upd = lambda: fight_side.update_title(f'hp: {pl.hp}, '
+                    f'damage: {pl.damage}, enemy hp: {entity.hp}, '
+                    f'potions: {pl.potions}')
+                upd()
+            else:
+                upd()
+                print('upd: stop!')
+
+        def enemy_attack():
+            global entity
+
+            sleep(2)
+            while pl.hp > 0 and entity.hp > 0:
+                entity.attack(pl)
+                sleep(3)
+            else:
+                pl.block = False
+                pl.balance += 250
+                self.lv_count += 1
+
+                if pl.hp > 0: 
+                    choice.activate()
+                    choice.update_title(f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}, balance: {pl.balance}')
+                else:
+                    game_over()
+
+                entity = Entity(randrange(20, 31, 2), randint(1, 3))
+                
+                print('fight: stop!')
+
+        Thread(target=enemy_attack).start()
+        Thread(target=update_fight_data).start()
 
 # Entity classes\/
 class Entity:
@@ -95,7 +139,6 @@ class Entity:
 
     def __gt__(self, other):
         self.attack(other)
-        
 
 class Player(Entity):
     def __init__(self, hp: int, damage: int, balance: int, potions: int):
@@ -127,57 +170,27 @@ class Player(Entity):
             self.hp += 3
         elif play_sounds:
             no_mp3.play()
+        
+        choice.update_title(f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}, balance: {pl.balance}')
 
-    def fight(self):
-        fight_side.activate()
-
-        def update_fight_data():
-            while self.hp > 0 and entity.hp > 0:
-                upd = lambda: fight_side.update_title(f'hp: {pl.hp}, '
-                    f'damage: {pl.damage}, enemy hp: {entity.hp}, '
-                    f'potions: {pl.potions}')
-                upd()
-            else:
-                upd()
-                print('upd: stop!')
-
-        def enemy_attack():
-            while self.hp > 0 and entity.hp > 0:
-                sleep(3)
-                entity.attack(self)
-            else:
-                self.block = False
-                self.balance += 250
-
-                if self.hp > 0: 
-                    choice.activate()
-                else:
-                    exit()
-
-                entity = Entity(randrange(20, 31, 2), randint(1, 3))
-                
-                print('fight: stop!')
-
-        Thread(target=enemy_attack).start()
-        Thread(target=update_fight_data).start()
-
-# create window \/
+# create window \/ ===========================
 win = Tk()
 win.title('game')
 win.geometry('500x300')
 
 # entities \/
-pl = Player(12, 2, 1200, 0)
+pl = Player(12, 2, 200, 0)
 entity = Entity(randrange(20, 31, 2), randint(1, 3))
+lv = Level(entity)
 
 # scenes \/
 settings_activate = lambda: settings.activate()
-shop_activate = lambda: shop.activate()
+shop_activate = lambda: shop.activate(f'balance: {pl.balance}, potions: {pl.potions}, sword sharpness: {pl.damage}')
 
 main_menu = Scene(
     PhotoImage(master=win, file='images\\frost1.png'),
     ['settings', 'shop', 'play'],
-    [settings_activate, shop_activate, pl.fight],
+    [settings_activate, shop_activate, lv.fight],
     'main menu'
 )
 settings = Scene(
@@ -201,16 +214,16 @@ fight_side = Scene(
 choice = Scene(
     PhotoImage(file='images\\fight side peaseful.png'),
     ['next enemy', 'heal', 'main menu'],
-    [name, pl.heal, main_menu.activate],
+    [lv.fight, pl.heal, main_menu.activate],
     f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}'
 )
 
 # canvas \/
 can = Canvas(win, width=500, height=500)
 
-buttons = [Button(win, text='"empty"', command=name),
+buttons = [Button(win, text='empty', command=name),
            Button(win, text='play!', command=main_menu.activate),
-           Button(win, text='"empty"', command=name)]
+           Button(win, text='empty', command=name)]
 img = PhotoImage(file='images\\just_lucas.png')
 lab = Label(win, text='Welcome!', bg='#7c93bb', fg='white')
 
