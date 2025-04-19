@@ -264,7 +264,7 @@ shop_activate = lambda: shop.activate(f'balance: {pl.balance}, potions: {pl.poti
 
 main_menu = Scene(
     PhotoImage(master=win, file='images\\frost1.png'),
-    ['settings', 'shop', 'play'],
+    ['settings', 'shop', 'fight'],
     [settings_activate, shop_activate, lv.fight],
     'main menu'
 )
