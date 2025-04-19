@@ -3,6 +3,10 @@ from pygame import init, mixer
 init()
 mixer.music.load('music\\frostbite caves.mp3')
 mixer.music.play(-1)
+no_mp3 = mixer.Sound('music\\no.mp3')
+
+play_music = True
+play_sounds = True
 
 def name():
     print('name')
@@ -16,6 +20,21 @@ def draw_image(img):
 def set_title(mess):
     lab.config(text=mess)
 
+def music_play():
+    global play_music
+    
+    if play_music:
+        mixer.music.stop()
+        play_music = False
+    else:
+        mixer.music.play(-1)
+        play_music = True
+    
+def sound_play():
+    global play_sounds
+    play_sounds = not play_sounds
+
+# scene\/
 class Scene:
     def __init__(self, img: PhotoImage=None, buttons_text: list[str]=None,
                  buttons_commands: list[any]=None, title: str=None):
@@ -32,18 +51,56 @@ class Scene:
 
         draw_image(self.img)
         set_title(self.title)
+    
+    def update_title(self, text):
+        self.title = text
+        set_title(self.title)
 
-#class Player:
-    #def __init__(self, hp: int=10):
-        #self.hp = hp
+# Entity classes\/
+class Entity:
+    def __init__(self, hp: int, damage: int):
+        self.hp = hp
+        self.damage = damage
+    
+    def attack(self, other):
+        other.hp -= self.damage
+    
+    def __gt__(self, other):
+        self.attack(other)
         
 
-# create windo\/
+class Player(Entity):
+    def __init__(self, hp: int, damage: int, balance: int, potions: int):
+        super().__init__(hp, damage)
+        self.balance = balance
+        self.potions = potions
+    
+    def buy_potion(self):
+        if self.balance >= potion_price:
+            self.potions += 1
+            self.balance -= potion_price
+            print(233)
+        elif play_sounds:
+            no_mp3.play()
+        
+        shop.update_title(f'balance: {self.balance}, potions: {self.potions}, sword sharpness: {self.damage}')
+    
+    def sharp(self):
+        if self.balance >= sharpen_price:
+            self.damage += 2
+            self.balance -= sharpen_price
+        elif play_sounds:
+            no_mp3.play()
+
+        shop.update_title(f'balance: {self.balance}, potions: {self.potions}, sword sharpness: {self.damage}')
+
+# create window\/
 win = Tk()
 win.title('game')
 win.geometry('500x300')
 
 # scenes \/
+pl = Player(12, 12, 1200, 0)
 settings_activate = lambda: settings.activate()
 shop_activate = lambda: shop.activate()
 
@@ -56,16 +113,15 @@ main_menu = Scene(
 settings = Scene(
     PhotoImage(file='images\\frost1.png'),
     ['music on/off', 'sounds on/off', 'back'],
-    [name, name, main_menu.activate],
+    [music_play, sound_play, main_menu.activate],
     'settings'
 )
 shop = Scene(
     PhotoImage(file='images\\frost1.png'),
-    ['sharpen the sword\nprice: 500', 'heal potion\nprice: 50', 'back'],
-    [name, name, main_menu.activate],
-    'shop'
+    [f'sharpen the sword\nprice: {(sharpen_price := 500)}', f'heal potion\nprice: {(potion_price := 50)}', 'back'],
+    [pl.sharp, pl.buy_potion, main_menu.activate],
+    f'balance: {pl.balance}, potions: {pl.potions}, sword sharpness: {pl.damage}'
 )
-
 
 # canvas \/
 can = Canvas(win, width=500, height=500)
