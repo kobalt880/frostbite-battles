@@ -78,11 +78,12 @@ class Level:
         self.enemy_power = enemy_power
     
     def fight(self):
+        self.lv_count += 1
         fight_side.activate()
 
         def update_fight_data():
             while pl.hp > 0 and entity.hp > 0:
-                upd = lambda: fight_side.update_title(f'hp: {pl.hp}, '
+                upd = lambda: fight_side.update_title(f'level: {self.lv_count}, hp: {pl.hp}, '
                     f'damage: {pl.damage}, enemy hp: {entity.hp}, '
                     f'potions: {pl.potions}')
                 upd()
@@ -92,6 +93,7 @@ class Level:
 
         def enemy_attack():
             global entity
+            print(self.lv_count)
 
             sleep(2)
             while pl.hp > 0 and entity.hp > 0:
@@ -100,15 +102,17 @@ class Level:
             else:
                 pl.block = False
                 pl.balance += 250
-                self.lv_count += 1
 
                 if pl.hp > 0: 
                     choice.activate()
-                    choice.update_title(f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}, balance: {pl.balance}')
+                    choice.update_title(f'level: {self.lv_count}, hp: {pl.hp}, damage: {pl.damage}, '
+                    f'potions: {pl.potions}, balance: {pl.balance}')
                 else:
                     game_over()
 
                 entity = Entity(randrange(20, 31, 2), randint(1, 3))
+                entity.hp *= self.lv_count
+                entity.damage *= self.lv_count
                 
                 print('fight: stop!')
 
@@ -171,7 +175,8 @@ class Player(Entity):
         elif play_sounds:
             no_mp3.play()
         
-        choice.update_title(f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}, balance: {pl.balance}')
+        choice.update_title(f'level: {lv.lv_count}, hp: {pl.hp}, damage: {pl.damage}, '
+        f'potions: {pl.potions}, balance: {pl.balance}')
 
 # create window \/ ===========================
 win = Tk()
