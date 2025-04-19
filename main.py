@@ -10,15 +10,14 @@ mixer.music.play(-1)
 no_mp3 = mixer.Sound('music\\no.mp3')
 crush = mixer.Sound('music\\crush.mp3')
 sword = mixer.Sound('music\\sword.mp3')
+ultimatus = mixer.Sound('music\\ult.mp3')
+pom = mixer.Sound('music\\pom.mp3')
 
 play_music = True
 play_sounds = True
 
 def name():
     print('name')
-
-def register():
-    print('regos')
 
 def draw_image(img):
     can.create_image(250, 150, image=img)
@@ -45,7 +44,11 @@ def sound_play():
 
 def game_over():
     set_title('game over!')
-        
+
+def play_forest():
+    mixer.music.load('music\\forest.mp3')
+    mixer.music.play()
+
 # scene\/
 class Scene:
     def __init__(self, img: PhotoImage=None, buttons_text: list[str]=None,
@@ -79,7 +82,6 @@ class Level:
     
     def fight(self):
         self.lv_count += 1
-        fight_side.activate()
 
         def update_fight_data():
             while pl.hp > 0 and entity.hp > 0:
@@ -91,33 +93,83 @@ class Level:
                 upd()
                 print('upd: stop!')
 
-        def enemy_attack():
-            global entity
-            print(self.lv_count)
+        def common_fight():
+            fight_side.activate()
 
-            sleep(2)
-            while pl.hp > 0 and entity.hp > 0:
-                entity.attack(pl)
-                sleep(3)
-            else:
-                pl.block = False
-                pl.balance += 250
+            def enemy_attack():
+                global entity
+                print(self.lv_count)
 
-                if pl.hp > 0: 
-                    choice.activate()
-                    choice.update_title(f'level: {self.lv_count}, hp: {pl.hp}, damage: {pl.damage}, '
-                    f'potions: {pl.potions}, balance: {pl.balance}')
+                sleep(2)
+                while pl.hp > 0 and entity.hp > 0:
+                    entity.attack(pl)
+                    sleep(3)
                 else:
-                    game_over()
+                    pl.block = False
+                    pl.balance += 250
 
-                entity = Entity(randrange(20, 31, 2), randint(1, 3))
-                entity.hp *= self.lv_count
-                entity.damage *= self.lv_count
-                
-                print('fight: stop!')
+                    if pl.hp > 0: 
+                        choice.activate()
+                        choice.update_title(f'level: {self.lv_count}, hp: {pl.hp}, damage: {pl.damage}, '
+                        f'potions: {pl.potions}, balance: {pl.balance}')
+                    else:
+                        game_over()
 
-        Thread(target=enemy_attack).start()
-        Thread(target=update_fight_data).start()
+                    entity = Entity(randrange(20, 31, 2), randint(1, 3))
+                    entity.hp *= self.lv_count
+                    entity.damage *= self.lv_count
+                    
+                    print('fight: stop!')
+
+            Thread(target=enemy_attack).start()
+            Thread(target=update_fight_data).start()
+        
+        def boss_fight():
+            global entity
+
+            mixer.music.stop()
+            if play_music:
+                mixer.music.load('music\\sky.mp3')
+                mixer.music.play(-1)
+            
+            entity = Entity(500, 20)
+
+            boss_fight_side.activate()
+
+            def enemy_attack():
+                global entity
+                print(self.lv_count)
+                attack_count = 0
+
+                sleep(2)
+                while pl.hp > 0 and entity.hp > 0:
+                    if attack_count != 5:
+                        entity.attack(pl)
+                        attack_count += 1
+                    else:
+                        entity.attack(pl, boss_power=True)
+                        attack_count = 0
+
+                    entity.defend()
+                    sleep(2)
+                    entity.defend()
+                    
+                else:
+                    if pl.hp > 0:
+                        mixer.music.stop()
+                        final_scene.activate()
+                    else:
+                        game_over()
+                    
+                    print('fight: stop!')
+
+            Thread(target=enemy_attack).start()
+            Thread(target=update_fight_data).start()
+
+        if self.lv_count < 10:
+            common_fight()
+        else:
+            boss_fight()
 
 # Entity classes\/
 class Entity:
@@ -129,18 +181,36 @@ class Entity:
     def defend(self):
         self.block = True
     
-    def attack(self, other):
-        if not (oth := other.block) and not (slf := self.block):
-            other.hp -= self.damage
-            if play_sounds:
-                sword.play()
-        elif oth:
-            other.block = False
-            if play_sounds:
-                crush.play()
-        elif slf and play_sounds:
-            no_mp3.play()
+    def attack(self, other, boss_power=False, pl=False):
+        if not boss_power:
+            if not (oth := other.block) and not (slf := self.block):
+                other.hp -= self.damage
+                if play_sounds:
+                    sword.play()
 
+            elif oth:
+                other.block = False
+                if play_sounds:
+                    if not pl:
+                        crush.play()
+                    else:
+                        pom.play()
+
+            elif slf and play_sounds:
+                no_mp3.play()
+
+        else:
+            if not other.block:
+                other.hp -= self.damage * 2
+            else:
+                other.hp -= self.damage * 0.75
+                other.block = False
+
+            other.hp = round(other.hp)
+            
+            if play_sounds:
+                ultimatus.play()
+            
     def __gt__(self, other):
         self.attack(other)
 
@@ -180,7 +250,7 @@ class Player(Entity):
 
 # create window \/ ===========================
 win = Tk()
-win.title('game')
+win.title('frostbite battles')
 win.geometry('500x300')
 
 # entities \/
@@ -221,6 +291,18 @@ choice = Scene(
     ['next enemy', 'heal', 'main menu'],
     [lv.fight, pl.heal, main_menu.activate],
     f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}'
+)
+boss_fight_side = Scene(
+    PhotoImage(file='images\\lucas.png'),
+    ['attack', 'heal', 'defend'],
+    [lambda: pl.attack(entity, pl=True), pl.heal, pl.defend],
+    f'hp: {pl.hp}, damage: {pl.damage}, enemy hp: {entity.hp}, potions: {pl.potions}'
+)
+final_scene = Scene(
+    PhotoImage(file='images\\fight side peaseful.png'),
+    ['author', 'time of\ndeveloping', 'lucas'],
+    [lambda: set_title('Kobalt880'), lambda: set_title('14 hours'), play_forest],
+    'you win!'
 )
 
 # canvas \/
