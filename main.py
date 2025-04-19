@@ -1,9 +1,15 @@
 from tkinter import *
 from pygame import init, mixer
+from time import sleep
+from random import randint, random, randrange
+from threading import Thread
+
 init()
 mixer.music.load('music\\frostbite caves.mp3')
 mixer.music.play(-1)
 no_mp3 = mixer.Sound('music\\no.mp3')
+crush = mixer.Sound('music\\crush.mp3')
+sword = mixer.Sound('music\\sword.mp3')
 
 play_music = True
 play_sounds = True
@@ -34,6 +40,9 @@ def sound_play():
     global play_sounds
     play_sounds = not play_sounds
 
+    if play_sounds:
+        no_mp3.play()
+
 # scene\/
 class Scene:
     def __init__(self, img: PhotoImage=None, buttons_text: list[str]=None,
@@ -56,15 +65,34 @@ class Scene:
         self.title = text
         set_title(self.title)
 
+class Level:
+    def __init__(self, enemy, lv_count):
+        self.enemy = enemy
+        self.lv_count = lv_count
+
+
 # Entity classes\/
 class Entity:
     def __init__(self, hp: int, damage: int):
         self.hp = hp
         self.damage = damage
+        self.block = False
+
+    def defend(self):
+        self.block = True
     
     def attack(self, other):
-        other.hp -= self.damage
-    
+        if not (oth := other.block) and not (slf := self.block):
+            other.hp -= self.damage
+            if play_sounds:
+                sword.play()
+        elif oth:
+            other.block = False
+            if play_sounds:
+                crush.play()
+        elif slf and play_sounds:
+            no_mp3.play()
+
     def __gt__(self, other):
         self.attack(other)
         
@@ -79,7 +107,6 @@ class Player(Entity):
         if self.balance >= potion_price:
             self.potions += 1
             self.balance -= potion_price
-            print(233)
         elif play_sounds:
             no_mp3.play()
         
@@ -93,21 +120,64 @@ class Player(Entity):
             no_mp3.play()
 
         shop.update_title(f'balance: {self.balance}, potions: {self.potions}, sword sharpness: {self.damage}')
+    
+    def heal(self):
+        if self.potions > 0:
+            self.potions -= 1
+            self.hp += 3
+        elif play_sounds:
+            no_mp3.play()
 
-# create window\/
+    def fight(self):
+        fight_side.activate()
+
+        def update_fight_data():
+            while self.hp > 0 and entity.hp > 0:
+                upd = lambda: fight_side.update_title(f'hp: {pl.hp}, '
+                    f'damage: {pl.damage}, enemy hp: {entity.hp}, '
+                    f'potions: {pl.potions}')
+                upd()
+            else:
+                upd()
+                print('upd: stop!')
+
+        def enemy_attack():
+            while self.hp > 0 and entity.hp > 0:
+                sleep(3)
+                entity.attack(self)
+            else:
+                self.block = False
+                self.balance += 250
+
+                if self.hp > 0: 
+                    choice.activate()
+                else:
+                    exit()
+
+                entity = Entity(randrange(20, 31, 2), randint(1, 3))
+                
+                print('fight: stop!')
+
+        Thread(target=enemy_attack).start()
+        Thread(target=update_fight_data).start()
+
+# create window \/
 win = Tk()
 win.title('game')
 win.geometry('500x300')
 
+# entities \/
+pl = Player(12, 2, 1200, 0)
+entity = Entity(randrange(20, 31, 2), randint(1, 3))
+
 # scenes \/
-pl = Player(12, 12, 1200, 0)
 settings_activate = lambda: settings.activate()
 shop_activate = lambda: shop.activate()
 
 main_menu = Scene(
     PhotoImage(master=win, file='images\\frost1.png'),
     ['settings', 'shop', 'play'],
-    [settings_activate, shop_activate, register],
+    [settings_activate, shop_activate, pl.fight],
     'main menu'
 )
 settings = Scene(
@@ -121,6 +191,18 @@ shop = Scene(
     [f'sharpen the sword\nprice: {(sharpen_price := 500)}', f'heal potion\nprice: {(potion_price := 50)}', 'back'],
     [pl.sharp, pl.buy_potion, main_menu.activate],
     f'balance: {pl.balance}, potions: {pl.potions}, sword sharpness: {pl.damage}'
+)
+fight_side = Scene(
+    PhotoImage(file='images\\fight side.png'),
+    ['attack', 'heal', 'defend'],
+    [lambda: pl.attack(entity), pl.heal, pl.defend],
+    f'hp: {pl.hp}, damage: {pl.damage}, enemy hp: {entity.hp}, potions: {pl.potions}'
+)
+choice = Scene(
+    PhotoImage(file='images\\fight side peaseful.png'),
+    ['next enemy', 'heal', 'main menu'],
+    [name, pl.heal, main_menu.activate],
+    f'hp: {pl.hp}, damage: {pl.damage}, potions: {pl.potions}'
 )
 
 # canvas \/
