@@ -90,6 +90,8 @@ class Level:
                     f'potions: {pl.potions}')
                 upd()
             else:
+                if pl.hp < 0: pl.hp = 0
+                if entity.hp < 0: entity.hp = 0
                 upd()
                 print('upd: stop!')
 
@@ -132,7 +134,7 @@ class Level:
                 mixer.music.load('music\\sky.mp3')
                 mixer.music.play(-1)
             
-            entity = Entity(500, 20)
+            entity = Entity(600, 20)
 
             boss_fight_side.activate()
 
@@ -203,7 +205,7 @@ class Entity:
             if not other.block:
                 other.hp -= self.damage * 2
             else:
-                other.hp -= self.damage * 0.75
+                other.hp -= self.damage * 0.5
                 other.block = False
 
             other.hp = round(other.hp)
